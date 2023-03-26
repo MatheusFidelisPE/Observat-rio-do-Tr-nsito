@@ -30,10 +30,14 @@ Base construída localmente através de consultas SQL em uma base local utilizad
 
 ![Tela inicial do Sistema](telainicial.png)
 
+![Tela do mapa de calor](telamapa.png)
 
-
+![Tela com gráficos](ultimatela.png)
 
 
 
 # Link para o relatório dinâmico
+
+[Disponível no RPubs](https://rpubs.com/matheusfsilva/1019910)
+
 
