@@ -1,0 +1,4 @@
+"0","dados.totEscolaridade <- dados.limpos %>% filter(!is.na(escolaridade_anos_falecido)) %>% group_by(escolaridade_anos_falecido) %>% summarise(Mortes = n())"
+"0",""
+"0","fig <- plot_ly(x = dados.totEscolaridade$Mortes, y = dados.totEscolaridade$escolaridade_anos_falecido, type = 'bar', orientation = 'h')"
+"0","fig"

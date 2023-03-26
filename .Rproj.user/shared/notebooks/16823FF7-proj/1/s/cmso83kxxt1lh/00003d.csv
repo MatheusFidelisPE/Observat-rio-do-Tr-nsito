@@ -1,0 +1,8 @@
+"0",""
+"0","dados.idade <- dados.limpos %>% filter(!is.na(idade))"
+"0",""
+"0","idades <- dados.idade$idade"
+"0",""
+"0","fig <- plot_ly(x = ~idades, type = ""histogram"", nbinsx=20)"
+"0",""
+"0","fig"

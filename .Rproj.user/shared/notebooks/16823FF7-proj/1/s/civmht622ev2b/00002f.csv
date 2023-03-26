@@ -1,0 +1,7 @@
+"0","dados.sexoAno <- dados.limpos %>% filter(sexo != ""Indefinido"") %>% group_by(sexo, ano_de_controle) %>% summarise(Mortes = n()) %>% arrange(ano_de_controle)"
+"0",""
+"0","anos <- c(2011:2019)"
+"0","sexos <- dados.sexoAno$sexo[1:2]"
+"0","valores <- matrix(dados.sexoAno$Mortes,nrow = 2, ncol = 9, byrow = F)"
+"0",""
+"0","barplot(valores, main=""Comparando Por Sexo E Ano"", names.arg=anos, xlab=""Anos"", ylab=""Quantidade de Mortes"", beside=T, col=c(""red"",""blue""), cex.names = 4, cex.axis = 3, cex.lab = 3,cex.main=6)"

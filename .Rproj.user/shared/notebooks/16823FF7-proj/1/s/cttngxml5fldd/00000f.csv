@@ -1,0 +1,8 @@
+"0","comparando.regioes <- dados.limpos %>% group_by(cod_regiao, ano_de_controle) %>% summarise(quantidade = n()) %>% arrange(ano_de_controle)"
+"0",""
+"0","comparando.regioes <- merge(comparando.regioes,regioes, by.x=""cod_regiao"", by.y = ""COD"") %>% select(ano_de_controle,NOME,quantidade) %>% arrange(ano_de_controle)"
+"0",""
+"0",""
+"0","DT::datatable(data=comparando.regioes, "
+"0","              editable = ""cell"", "
+"0","              options = list(c(scrollY=""200px"", scrollX=""300px"", pageLength = 100)))"

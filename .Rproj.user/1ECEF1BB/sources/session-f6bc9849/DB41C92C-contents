@@ -1,0 +1,117 @@
+
+#sexo
+data$sexo <- as.factor(data$sexo)
+str(data)
+
+data %>% group_by(sexo) %>% summarise(prop = n()/359621)
+levels(data$sexo) <- levels(data$sexo)[2:4]
+
+data <- data[data$sexo!="0",]
+
+
+#racacor
+data$raca_cor <- as.factor(data$raca_cor)
+levels(data$raca_cor)[[5]] <- "Indígena"
+nrow(data)
+data %>% group_by(sexo) %>% summarise(prop = n()/359429)
+
+
+# selecionando apenas pessoas com mais de 1 ano
+data %>% group_by(tipo_idade) %>% summarise(prop = n()/nrow(data))
+
+data <- data[data$tipo_idade==4,]
+nrow(data)
+
+data$ocupacao_falecido <- as.factor(data$ocupacao_falecido)
+
+
+data$estado_civil <- as.factor(data$estado_civil)
+levels(data$estado_civil)[[6]] <- "Ignorado"
+
+data %>% group_by(estado_civil) %>% summarise(prop = n()/nrow(data))
+
+data$acid_trabalho <- as.factor(data$acid_trabalho)
+levels(data$acid_trabalho)[[2]] <- "Nao"
+
+write.csv(data, file="dado_limpo_1_0.csv", sep=",")
+
+data <- read.csv("dado_limpo_1_0.csv", sep=",")
+View(data)
+data$escolaridade_anos_falecido <- as.factor(data$escolaridade_anos_falecido)
+levels(data$escolaridade_anos_falecido)[[6]] <- "Ignorado"
+
+
+data$nivel_escolaridade_falecido <- as.factor(data$nivel_escolaridade_falecido)
+levels(data$nivel_escolaridade_falecido)[[7]] <- "Ignorado"
+
+data <- data[,-c(1,2)]
+
+write.csv(data, file="dado_limpo_2_0.csv", row.names = F)
+dados1 <- read.csv("dado_limpo_2_0.csv")
+View(dados1)
+
+
+
+estados <- read_state(year = 2019, showProgress = F)
+
+ggplot(estados) + geom_sf(aes(fill=code_state), size=.15) + theme_minimal()
+
+head(estados)
+df <- utils::read.csv(system.file("extdata/br_states_lifexpect2017.csv", package = "geobr"), encoding = "UTF-8")
+tot <- dados1 %>% filter(ano_de_controle == 2019) %>% group_by(cod_estado) %>% summarise(somatorio = n())
+View(df)
+
+dados.limpos <- read.csv("dado_limpo_2_0.csv")
+
+
+
+#--------------TESTES---------------
+
+df <- dados.limpos %>% filter(ano_de_controle == 2019) %>% group_by(cod_estado) %>% summarise(contagem = n())
+View(df)
+url <- 'https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/brazil-states.geojson'
+
+counties <- rjson::fromJSON(file=url)
+
+fig <- plot_ly() 
+fig <- fig %>% add_trace(
+  type="choroplethmapbox",
+  geojson=counties,
+  locations=df$cod_estado,
+  z=df$contagem,
+  colorscale="Viridis",
+  zmin=0,
+  zmax=20000,
+  marker=list(line=list(
+    width=0),
+    opacity=0.5
+  )
+)
+fig <- fig %>% layout(
+  mapbox=list(
+    style="carto-positron",
+    zoom =2,
+    center=list(lon= -95.71, lat=37.09))
+)
+
+fig
+help(par)
+
+
+data <- mtcars[, c("mpg", "cyl", "disp")]
+
+# Criação de gráfico multicolunas
+multicolunas <- plot_ly(data, x = ~cyl, y = ~disp, color = ~mpg, type = "bar")
+
+# Personalização do gráfico
+multicolunas %>% 
+  layout(title = "Grafico Multicolunas",
+         xaxis = list(title = "Numero de cilindros"),
+         yaxis = list(title = "Deslocamento do motor")) 
+
+
+dados.sexotot <- dados.limpos %>% filter(!is.na(sexo)) %>% group_by(sexo) %>% summarise(Mortes = n())
+dados.sexotot
+"as" != "a"
+
+View(dados.limpos)

@@ -1,0 +1,8 @@
+"0","dados.limpos <- read.csv(""dado_limpo_0.2.csv"", sep = "","", header = T)"
+"0",""
+"0",""
+"0","DT::datatable(data=head(dados.limpos), "
+"0","              editable = ""cell"", "
+"0","              options = list(c(scrollY=""200px"", scrollX=""300px"", pageLength = 100))"
+"0","              "
+"0","              )"

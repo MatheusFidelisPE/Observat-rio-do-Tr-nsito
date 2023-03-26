@@ -1,0 +1,436 @@
+---
+title: "Observatório do Trânsito Brasileiro de 2011-2019"
+author: "Fidelis Matheus"
+date: "2023-03-15"
+output:  
+  rmdformats::robobook:
+    highlight: kate
+    df_print: paged
+---
+
+# Por que estudar as mortes no trânsito? {.tabset}
+  
+  <div style="text-align:justify">
+  Segundo a OMS mais de 1 milhão de pessoas morrem no trânsito por ano, mais da metade dessas vítimas são pedestre, ciclistas e motociclistas. O Brasil não é um ponto fora da curva, com a crescente ecônomica ocorrida nos anos 2000 as pessoas passaram a dquirir mais automóveis e com isso não só cresceram os engarrafamentos nas grandes cidades, mas também o número de acidentados. O Ipea estima 45 mil mortes anuais no trânsito brasileiro e mais de R$ 50 bilhões em custos para o serviço público com vítimas. Os danos às vidas e aos cofres públicos são de larga escala, sendo assim é de suma importância que investiguemos e façamos a extração de informações desses dados de mortalidade no trânsito. 
+  
+  O intuito deste projeto é processar as mortes ocorridas no trânsito e tentar encontrar os grupos mais vulneráveis, como sexo, profissões que são mais acometidas por esse tipo de falecimento, escolaridade das pessoas que vieram a óbito, idade, estados mais perigosos, regiões mais perigosas, tipo de acidente que mais ocasiona mortes e fazer correlações entre os estados e regiões, com todas essas observações podendo ser feitas ao longo do período 2011 até 2019.
+  
+  Com essas análises os gestores públicos conseguirão ter acesso a uma análise temporal e entender dentro desses anos quais grupos estão mais desguarnecidos, quais tipos de acidentes cresceram e quais diminuiram e assim, terão como elaborar estratégias de combate. Ademais, é possível que a própia sociedade entenda o perigo do trânsito. 
+  </div>
+  
+
+
+
+
+# Pacotes Utilizados {.tabset }
+
+
+## Setup
+
+```{r setup, message=F, warning=F, error=T, echo=T}
+library(plotly)
+library(dplyr)
+library(leaflet)
+library(DT)
+library(geobr)
+library(ggplot2)
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE, fig.width = 50, fig.height = 25)
+states <- read_state(
+  year=2019, 
+  showProgress = FALSE
+  )
+
+no_axis <- theme(axis.title=element_blank(),
+                 axis.text=element_blank(),
+                 axis.ticks=element_blank())
+estados <- read.csv("estados.csv")
+regioes <- read.csv("regioes.csv")
+dados.limpos <- read.csv("dado_limpo_2_0.csv")
+cids <- read.csv("cid_transporte.csv")
+```
+
+
+## Explicando os pacotes utilizados
+
+
+```{r pressure, echo=FALSE}
+pacotes <- c("library(plotly)", "library(dplyr)", "library(DT)", 
+             "library(geobr)", "library(ggplot2)", "library(knitr)")
+utilizacao <- c("Utilizado para construção de gráficos", 
+                "Utilizado para manipulação dos dados", "Utilizado para criação de tabelas interativas", 
+                "Utilizado para construção de mapa de calor", 
+                "para visualização de gráficos", "Utilizado para alteração de chuncks")
+pacotes_descricao <- data.frame("Pacotes" = pacotes,
+                      "Utilização" = utilizacao)
+DT::datatable(pacotes_descricao, editable = "cell", options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+
+
+
+
+# Preparando os dados {.tabset }
+
+## Dados brutos
+  <div style="text-align:justify">
+  Os dados originais utilizados nesse sistema foram retirados do sistema de mortalidade [SIM](http://sim.saude.gov.br/default.asp) do governo federal. Os dados podem ser encontrados no [portal de dados abertos](https://dados.gov.br/dados/conjuntos-dados/sim-1979-2019), de onde foi retirada essa massa. Nessa página temos um arquivo para informações sobre as variáveis presentes nessa massa de 1979 a 2020 e arquivos .csv, cada arquivo .csv contém os óbitos de um ano "Mortalidade Geral 1999" contém de 1999 e "Mortalidade Geral 2000" contém 2000. O SIM é um sistema que sofreu alterações ao longo do tempo, então algumas variáveis existem desde 1979, mas outras foram sendo adicionadas, retiradas ou até renomeadas com o passar dos anos. Assim, cada arquivo tem o seu conjunto próprio de variáveis, mesmo se tratando do mesmo dado.  
+</div>
+
+## Etapas do tratamento
+
+### Importação
+  <div style="text-align:justify">
+Como dito no texto que apresenta a fonte dos dados, cada ano possui seu conjunto único de variáveis, então a primeira etapa da preparação dos dados foi estudar as variáveis e padronizar os dados, por exemplo a variável <strong>ESTCIV</strong> e <strong>ESTCIVIL</strong> tratam do mesmo dado, que é a situação conjugal do falecido. <strong>ESTCIV</strong> foi adicionado em 1996 e <strong>ESTCIVIL</strong> foi adicionado em 1979. Além de não termos a  mesma sequência de colunas, a coluna <strong>HORAOBITO</strong> vem na coluna 6 no csv do ano 2017 já no ano 2019 ela está na coluna 5. Então, partindo dessas peculiaridade, foi necessário mapear as variáveis existentes em cada ano e padronizar, para que não tivesse duas colunas para o mesmo dado. 
+
+
+```{r, warning=F, message=F, error=F,echo=F}
+variaveis <- read.csv("colunas.csv", header = F)
+DT::datatable(variaveis, editable = "cell", options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+```
+
+Após estudar a formatação de cada ano foi possível padronizar as colunas e remover algumas que não fariam sentido manter no conjunto de dados que ficaria armazenado no banco de dados, colunas que não tinha continuidade ao longo dos anos, colunas repetidas foram todas retiradas. Ficando com 60 colunas ao todo salvas em um banco de dados MySQL. O banco de dados no MySQL contém todos os dados de mortes ocorridas no Brasil, inclusive mortes que não ocorreram no trânsito.
+
+Com os dados no banco de dados, foi possível buscar os falecimentos ocorridos no trânsito. Utilizei o R para fazer conexão com o banco e realizar uma consulta buscando CIDs que iniciam com a letra <strong>V</strong> na tabela datasim, que são CIDs ligados a mortes no trânsito. Abaixo o script utilizado para fazer conexão e realizar uma consulta. 
+
+```
+mysqlconnection = dbConnect(RMySQL::MySQL(),
+                            dbname='NOME_BANCO',
+                            host='localhost',
+                            port=3306,
+                            user='USER_NAME',
+                            password='SENHA')
+
+result <- dbSendQuery(mysqlconnection, "select * from datasim where causa_basica_obito like 'V%' and ano_de_controle > 2010 and ano_de_controle <= 2019")
+mortes.transito <- fetch(result, n = 359621)
+write.csv(mortes.transito, "mortes_transito.csv", sep=",")
+```
+Após executar o código apresentado acima, foi possível ter um dataframe com 359621 registros e 60 colunas. Agora tendo em mãos um arquivo csv com as mortes ocorridas no trânsito dos anos de 2011 até 2019, pude começar a limpar os dados. Abaixo mostro os dados encontrados no csv bruto.
+
+```{r dados_brutos}
+mortes.transito <- read.csv("mortes_em_transito.csv", sep = ",")
+DT::datatable(head(mortes.transito,6), editable = "cell", options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+```
+
+- Passo 1: 
+
+Retirar colunas que não fazem sentido para a análise que será realizada nesse projeto, colunas como a escolaridade da mãe agregada, código município iml, obito parto, essas variáveis fazem sentindo em outros tipos de análises, nesse contexto foi melhor retira-las já que não seriam utilizadas. Então foram retiradas 26 colunas, ficando as colunas presentes na tabela abaixo.    
+```{r retirando_colunas_indesejadas, echo=F}
+primeiras.colunas <- read.csv("pr_col_dentro.csv", sep = ",", header = F)
+
+
+DT::datatable(colnames = rep("", ncol(primeiras.colunas)),
+  data=primeiras.colunas, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100))
+              
+              )
+```
+
+- Passo 2:
+
+Após retirar as variáveis indesejadas, fui em busca de varíaveis com muitos valores NAs, essas variáveis podem não me entregar informação se não forem preenchidas na ponta do sistema que faz o cadastro dos dados. Então, fiz um script em R para entender a proporção de valores faltantes para cada variável que ainda está presente em minha tabela, descobri que 7 variáveis tinham mais de 90% do seu conteúdo como valor NA e uma outra tinha 80%. Assim, essas variáveis foram retiradas e fiquei com as variáveis expostas abaixo. 
+```{r retirando_colunas_com_alta_proporcao_NA, echo=F}
+primeiras.colunas <- read.csv("variaveis_semNA.csv", sep = ",", header = F)
+
+
+DT::datatable(colnames = rep("", ncol(primeiras.colunas)),
+  data=primeiras.colunas, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100))
+              
+              )
+```
+
+
+Após retirar essas colunas não é será preciso retirar novas colunas, apenas adicionar algumas variáveis que não existem, cada registro tem o município de ocorrência do óbito, mas não tem o código da região e o código do estado, então foi preciso, a partir da coluna cod_munipio_ocorrencia, criar as colunas do estado e região. O dataset ficou da seguinte forma: 
+```{r dataset_base, echo=F}
+dados.limpos2 <- read.csv("dado_limpo_0.2.csv", sep = ",", header = T)
+
+
+DT::datatable(data=head(dados.limpos2), 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100))
+              
+              )
+```
+
+- Passo 3:
+
+Após selecionar as variáveis, comecei a fazer algumas mudanças nos valores salvos na base. Os dados de sexo por exemplo, são numéricos com 1 sendo sexo masculino e 2 sendo sexo feminino, então fiz a mudança colocando "Masculino" e "Feminino". Existem outros detalhes das variáveis que podem ser encontradas [aqui](https://docs.google.com/document/d/1SdnlpiXT6U_S8OUf5vXcbOcnFi6qwSh4/edit?usp=sharing&ouid=104245166087299416646&rtpof=true&sd=true). 99.1% dos dados são de falecidos com mais de 1 ano, constatei isso com a variável tipo_idade que determina se o valor presente na variável idade é em horas, dias, meses ou anos, resolvi coletar dados apenas de pessoas a partir de 1 ano. Ainda alterei as variáveis racacor, estado_civil e acid_trabalho seguindo a documentação do link acima. 
+
+```{r dataset_basico_semNA, echo=F}
+retirando.nas <- read.csv("dado_limpo_2_0.csv", sep = ",", header = T)
+retirando.nas <- retirando.nas[,-c(1,2)]
+
+DT::datatable(data=head(retirando.nas), 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+
+Além dessa tabela, também utilizarei mais 3 tabelas, uma para a descrição de cada código do CID, uma para o nome do estado e outra para o nome da região. Essas tabelas serão utilizadas através de merge durante as análises para não entregar ao usuário apenas o número do estado/região ou código do CID sem uma descrição.
+
+- Tabela Estados
+```{r estados, echo=F}
+estados <- read.csv("estados.csv", sep = ",", header = T)
+DT::datatable(data=head(estados), 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+- Tabela Regiões
+```{r regiao, echo=F}
+regioes <- read.csv("regioes.csv", sep = ",", header = T)
+DT::datatable(data=head(regioes), 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+- Tabela CIDs
+```{r cids, echo=F}
+cids <- read.csv("cid_transporte.csv", sep = ",", header = T)
+cids <- cids[,-1]
+DT::datatable(data=head(cids), 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+
+</div>
+
+
+
+
+
+# Analisando o dataset {.tabset }
+
+
+
+
+O mapa de calor abaixo é referente a quantidade de mortes ocorridas no trânsito em cada estado durante o ano de 2019. Podemos então fazer algumas buscas mais aprofundadas seguindo os dados do mapa. O estado de São Paulo foi o estado onde ocorreu mais mortes no Brasil, com 5007 óbitos durante o ano de 2019, o estado da Bahia teve 2455 sendo o estado que mais morreu pessoas na região NE. O que chama atenção na bahia é que ela tinha uma estimativa de aproximadamente 14 milhões de habitantes em 2019, SP tinha uma estimativa de aproximadamente 46 milhões de pessoas, ou seja, a BA teve algo próximo da metade da quantidade de mortes de SP tendo uma população 3 vezes menor.
+
+
+![](myplot.jpeg)
+
+No gráfico abaixo vemos uma tendência de queda das mortes ocorridas no trânsito do Brasil no período de 2011 até 2019. Dentro desse intervalo, vemos que entre 2014 e 2015 houve a melhor queda nas mortes, com uma queda de quase 12% nesse ano. 
+
+```{r grafico_brasil_por_ano, fig.align='center', message=FALSE, warning=FALSE, out.width="100%", fig.height=4}
+grafico.ano.brasil <- dados.limpos %>% 
+  group_by(ano_de_controle) %>% 
+  summarise(contagem = n())
+
+plot_ly(data=grafico.ano.brasil,x=~ano_de_controle, y=~contagem, mode="lines") %>% 
+  layout(title="Contagem de Mortes no Brasil Por Ano", xaxis=list(title="Ano"), yaxis=list(title="Contagem de Mortes"))
+```
+
+Na tabela abaixo vemos o somatório das mortes ocorridas no ano de 2011 até 2019 em cada estado. Com SP se mantendo como lider desse ranking durante o somatório de todo o período.
+
+<h2 style="align:center"> Mortes Por Estado no Período de 2011 a 2019 </h2>
+```{r tabela_mortes_por_estado_2019, echo=F}
+grafico.2019.por.estado <- dados.limpos %>% group_by(cod_estado) %>% summarise(contagem = n())
+
+estados <- read.csv("estados.csv")
+
+estado.mortes <- merge(x=grafico.2019.por.estado, y= estados, by.x="cod_estado", by.y="COD") %>% select(NOME, contagem) %>% arrange(desc(contagem))
+
+
+DT::datatable(data=estado.mortes, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+
+<h2>Relação Entre Ocupação Profissional e Mortes no Trânsito</h2>
+```{r ocupacao_por_ano, echo=FALSE, message=F, warning=F, error=F}
+dados.limpos$ocupacao_falecido <- as.factor(dados.limpos$ocupacao_falecido)
+ocup.ano <- dados.limpos %>% filter(!is.na(dados.limpos$ocupacao_falecido)) %>% group_by(ocupacao_falecido,ano_de_controle) %>% summarise("Mortes" = n()) %>% filter(Mortes > 200) %>% arrange(desc(Mortes))
+
+DT::datatable(data=ocup.ano, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+
+
+
+A tabale acima representa a quantidade de mortes ocorridas para cada profissão por ano, as profissões que contenham uma quantidade de mortes abaixo de 200 foram retiradas dessa tabela. As hipóteses iniciais era de que profissionais do trânsito, que passam mais tempo no mesmo, acabariam tendo maiores índices de mortalidade, mas como é mostrado na tabale a ocupação <strong>999991</strong>, essa ocupação se refere <strong>ESTUDANTE</strong> esse dado foi diferente do que se conjecturava no ínicio das análises. As outras profissões que aparecem ainda nessa primeira página da tabela são <strong>APOSENTADO/PENSIONISTA (999993)</strong> e <strong>TRABALHADOR AGROPECUÁRIO EM GERAL (621005)</strong>. As outras profissões que aparecem nas próximas 4 páginas da tabela são relacionadas ao campo em sua maioria. 
+
+O <strong>MOTORISTA DE CARRO DE PASSEIO (782305)</strong> teve maior mortalidade anual entre os profissionais do trânsito no ano de 2011, tendo um valor absoluto de óbitos igual a 850. Nesse mesmo ano o <strong>MOTORISTA DE CAMINHÃO (ROTAS REGIONAIS E INTERNACIONAIS)782510</strong> alcançou uma marca de 827 mortos. Após 9 anos a ocupação 782510 se manteve com alto grau de mortes, alcançando uma marca de 707. 
+
+
+- Abaixo temos um gráfico com as quatro ocupações que tiveram mais mortes somados todos os anos do período. 
+
+  - **621005: TRABALHADOR AGROPECUARIO EM GERAL**
+  - **622020: TRABALHADOR VOLANTE DA AGRICULTURA**
+  - **999991: ESTUDANTE**
+  - **999993: APOSENTADO/PENSIONISTA**
+
+Vemos que a ocupação **999993** se manteve muito constante durante todo o período de tempo, já a ocupação **621005** variou bastante tendo picos em 2013 e 2017. 
+
+```{r grafico_multicol_ocup_mais_mortes, warning=F, echo=T, error=F, message=F}
+ocup.mais.mortes <- dados.limpos %>% filter(!is.na(ocupacao_falecido)) %>% group_by(ocupacao_falecido) %>% summarise(contagem = n()) %>% arrange(desc(contagem))
+
+quatro.ocup.mais.mortes <- ocup.mais.mortes$ocupacao_falecido[1:4]
+
+dado.grafico.mulcol <- dados.limpos %>% filter(ocupacao_falecido %in% quatro.ocup.mais.mortes) %>% group_by(ano_de_controle, ocupacao_falecido) %>% summarise(Mortes = n()) %>% arrange(ano_de_controle, ocupacao_falecido)
+
+anos <- unique(dado.grafico.mulcol$ano_de_controle)
+ocupacao <- dado.grafico.mulcol$ocupacao_falecido[1:4]
+valores <- matrix(dado.grafico.mulcol$Mortes,nrow = 4, ncol = 9, byrow = T)
+
+barplot(valores, main="Trabalhos Com Maior Quantidade de Mortes no Periodo Analisado (2011-2019)", names.arg=anos, xlab="Anos", ylab="Quantidade de Mortes", beside=T, col=c("red", "yellow", "green", "grey"), cex.names = 4, cex.axis = 3, cex.lab = 3,cex.main=6)
+
+legend("topright", pch = c(15,15,15), col=c("red", "yellow", "green", "grey"), legend = ocupacao, cex=5)
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 2) 
+```
+
+<h2>Comparando as Regiões</h2>
+A Tabela abaixo mostra a quantidade de mortes ocorridas em uma dada região para cada ano do período analisado. A tabela é interativa, então podemos ordenar por quantidade e veremos que a quantidade de óbitos é maior no sudeste em todo o período de tempo, isso se dá também pela população residente nessa região, como estamos trabalhando com dados absolutos, temos que ter em mente que a maior quantidade de pessoas vivendo em uma determinada região condiciona a ter mais óbitos, óbitos em geral. Sabendo disso, ainda podemos analisar tendência de queda na região <strong>sudeste</strong>, vemos que apenas do ano 2013 para 2014 houve uma alta nos óbitos, nos outros anos a região se manteve com uma queda na quantidade de óbitos.
+
+```{r comparando_regioes, message=F, error=F, warning=F}
+comparando.regioes <- dados.limpos %>% group_by(cod_regiao, ano_de_controle) %>% summarise(quantidade = n()) %>% arrange(ano_de_controle)
+
+comparando.regioes <- merge(comparando.regioes,regioes, by.x="cod_regiao", by.y = "COD") %>% select(ano_de_controle,NOME,quantidade) %>% arrange(ano_de_controle)
+
+
+DT::datatable(data=comparando.regioes, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+```
+
+
+```{r grafico.comparativo.regioes, message=F, warning=F, error=F}
+
+anos <- c(2011:2019)
+regioes <- comparando.regioes$NOME[1:5]
+valores <- matrix(comparando.regioes$quantidade,nrow = 5, ncol = 9, byrow = F)
+
+barplot(valores, main="Comparando Regiões", names.arg=anos, xlab="Anos", ylab="Quantidade de Mortes", beside=T, col=c("red", "yellow", "green", "grey","blue"), cex.names = 4, cex.axis = 3, cex.lab = 3,cex.main=6)
+
+legend("topright", pch = c(15,15,15), col=c("red", "yellow", "green", "grey", "blue"), legend = regioes, cex=5)
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 2) 
+
+```
+Com o gráfico posto acima podemos ver a queda nas mortes na região Nordeste e Sudeste, mas a região norte se manteve quase que contínua. Quando comparamos em valores absolutos com as outras regiões a região norte realmente performa melhor, mas as mortes ocorridas no trânsito são mortes chamadas evitáveis, isso significa que o objetivo é reduzir ao máximo essas mortes e durante todo esse período a região não mostrou nenhuma tendência de queda, apenas de constância nos dados.
+ 
+ 
+<h2>Qual Sexo é Mais Acometido?</h2>
+
+Abaixo temos um gráfico no formato pizza que contabiliza a quantidade de mortes por sexo no período analisado. As pessoas do sexo <strong>Masculino</strong> são as que mais tiveram mortes no período estudado. 
+```{r comparativo_sexo, fig.align='center', message=FALSE, warning=FALSE, out.width="100%", fig.height=4}
+dados.sexotot <- dados.limpos %>% group_by(sexo) %>% summarise(Mortes = n())
+
+
+colors <- c('rgb(211,94,96)', 'rgb(128,133,133)')
+
+
+fig <- plot_ly(dados.sexotot, labels = ~sexo, values = ~Mortes, type = 'pie')
+fig %>% layout(title = 'Mortes por Sexo de 2011 até 2019',
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+```
+
+
+```{r agrupandoPorSexoEAno, message=F, warning=F, error=F}
+dados.sexoAno <- dados.limpos %>% filter(sexo != "Indefinido") %>% group_by(sexo, ano_de_controle) %>% summarise(Mortes = n()) %>% arrange(ano_de_controle)
+
+anos <- c(2011:2019)
+sexos <- dados.sexoAno$sexo[1:2]
+valores <- matrix(dados.sexoAno$Mortes,nrow = 2, ncol = 9, byrow = F)
+
+barplot(valores, main="Comparando Por Sexo E Ano", names.arg=anos, xlab="Anos", ylab="Quantidade de Mortes", beside=T, col=c("red","blue"), cex.names = 4, cex.axis = 3, cex.lab = 3,cex.main=6)
+
+legend("topright", pch = c(15,15,15), col=c("red", "blue"), legend = sexos, cex=5)
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 2) 
+```
+
+O Sexo masculino se sobrepõe com grande vantagem em relação ao sexo feminino durante todo o período estudado. A curva descendente nesse sexo também é maior que para o sexo oposto, mas ambas mostram que estão em queda na quantidade de mortes.
+
+
+
+<h2>Análise da escolaridade</h2>
+
+```{r analise.escolaridade, fig.align='center', message=FALSE, warning=FALSE, out.width="100%", fig.height=4}
+dados.totEscolaridade <- dados.limpos %>% filter(!is.na(escolaridade_anos_falecido)) %>% group_by(escolaridade_anos_falecido) %>% summarise(Mortes = n())
+
+fig <- plot_ly(x = dados.totEscolaridade$Mortes, y = dados.totEscolaridade$escolaridade_anos_falecido, type = 'bar', orientation = 'h')
+fig
+```
+
+No gráfico acima a barra acima de <strong>Ignorado</strong> são dados que não foram preenchidos na ponta que faz o cadastro dos dados. Vemos a maior parte dos dados estão entre 4 e 11 anos, com uma distribuição quase que igualitária entre as faixas <strong>4 a 7 anos</strong> e <strong>8 a 11 anos</strong>.
+
+```{r agrupandoAnosNivelEscolaridade, fig.align='center', message=FALSE, warning=FALSE, out.width="100%", fig.height=4}
+
+dados.anosNivel <- dados.limpos %>% filter(!is.na(escolaridade_anos_falecido), !is.na(nivel_escolaridade_falecido)) %>% group_by(escolaridade_anos_falecido, nivel_escolaridade_falecido) %>% summarise(Morte = n())
+names(dados.anosNivel) <- c("Escolaridade Em Anos", "Nível de Escolaridade", "Morte")
+
+DT::datatable(data=dados.anosNivel, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+```
+Na tabela acima temos um agrupamento de nível de escolaridade com anos estudados. Vemos que as pessoas que estudaram de 8 a 11 anos e chegaram até o nível médio são as mais morrem. 
+
+<h2>Explorando a partir da idade</h2>
+
+Com o Histograma plotado abaixo, podemos perceber que as idades das pessoas que morrem no trânsito não estão distribuídas normalmente, tendo um pico no ínicio da curva. Pessoas entre 20-24 anos é a idade mais comum entre as pessoas que falecem por essa causa. Após isso, a queda na incidência de mortes para cada grupo de 5 anos cai quase que linearmente.
+
+Podemos concluir que pessoas entre 20-30 anos são as que mais morrem, com destaque também para pessoas entre 15-19 anos que são muito acometidas.
+
+```{r explorandoIdade, fig.align='center', message=FALSE, warning=FALSE, out.width="100%", fig.height=4}
+
+dados.idade <- dados.limpos %>% filter(!is.na(idade))
+
+idades <- dados.idade$idade
+
+fig <- plot_ly(x = ~idades, type = "histogram", nbinsx=20)
+
+fig
+
+```
+
+<h2>Quais são os CIDs com piores estatísticas</h2>
+
+
+```{r exploratorioCid, fig.align='center', message=FALSE, warning=FALSE, out.width="100%", fig.height=4}
+dados.cids <- dados.limpos %>% filter(!is.na(causa_basica_obito)) %>% group_by(causa_basica_obito) %>% summarise(Mortes = n()) %>% arrange(desc(Mortes))
+dados.cids <- dados.cids[1:5,]
+dados.cids <- merge(dados.cids, cids, by.x="causa_basica_obito",by.y="CID")
+names(dados.cids)[[1]] <- "CID"
+
+
+fig <- plot_ly(dados.cids, labels = ~CID, values = ~Mortes, type = 'pie')
+fig %>% layout(title = 'CID que mais causaram óbitos entre 2011-2019',
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+```
+
+Dicionário dos CIDs: 
+```{r tabelaDicionarioCid}
+
+DT::datatable(data=dados.cids, 
+              editable = "cell", 
+              options = list(c(scrollY="200px", scrollX="300px", pageLength = 100)))
+
+```
+
+
+# Conclusão
+
+Os dados mostrados aqui demonstram que o Estado brasileiro vem conseguindo reduzir a quantidade de mortes no trânsito no período estudado, mas ainda não estão no esperado, já que as mortes no trânsito são mortes evitáveis e precisam ser trazidas para algo próximo de 0.
+
+Entendemos que pessoas do sexo masculino são as que mais morrem no trânsito, segundo os dados do Sistema de mortalidade do Brasil. Vimos também que a maior taxa de mortalidade está entre as pessoas que chegaram até o nível médio de escolaridade.
+
+O trabalho contém limitações como o fato de trabalhar com a quantidade de mortes absolutas, visto que cada localidade tem a sua quantidade de pessoas, é preciso levar isso em consideração para análises mais aprofundadas sobre a desenvoltura dos dados de mortalidade no Brasil. No trabalho atual conseguimos mostrar tendências, e a curva de mortalidade no Brasil e nas regiões estão em tendêncida de queda.
+
+

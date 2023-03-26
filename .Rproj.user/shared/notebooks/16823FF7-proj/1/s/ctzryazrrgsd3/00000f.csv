@@ -1,0 +1,2 @@
+"0","mortes.transito <- read.csv(""mortes_em_transito.csv"", sep = "","")"
+"0","DT::datatable(head(mortes.transito,6), editable = ""cell"", options = list(c(scrollY=""200px"", scrollX=""300px"", pageLength = 100)))"

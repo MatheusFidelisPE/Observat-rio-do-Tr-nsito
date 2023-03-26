@@ -1,0 +1,7 @@
+acid_trabalho,cod_municipio_ocorrencia,idade,statusdoepdemiologico
+ano_de_controle,cod_municipio_residencia,local_ocorrencia,tipo_idade
+assist_medica,data_nascimento,nivel_escolaridade_falecido,tipo_obito
+atestado,dt_obito,ocupacao_falecido,
+causa_basica_obito,escolaridade_anos_falecido,quantidade_filhos_vivos,
+circunstancia_obito,escolaridade_anos_mae,raca_cor,
+cod_municipio_natural,estado_civil,sexo,

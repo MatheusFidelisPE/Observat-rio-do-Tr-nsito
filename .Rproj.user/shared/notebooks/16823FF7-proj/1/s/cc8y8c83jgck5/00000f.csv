@@ -1,0 +1,6 @@
+"0","dados.limpos$ocupacao_falecido <- as.factor(dados.limpos$ocupacao_falecido)"
+"0","ocup.ano <- dados.limpos %>% filter(!is.na(dados.limpos$ocupacao_falecido)) %>% group_by(ocupacao_falecido,ano_de_controle) %>% summarise(""Mortes"" = n()) %>% filter(Mortes > 200) %>% arrange(desc(Mortes))"
+"0",""
+"0","DT::datatable(data=ocup.ano, "
+"0","              editable = ""cell"", "
+"0","              options = list(c(scrollY=""200px"", scrollX=""300px"", pageLength = 100)))"

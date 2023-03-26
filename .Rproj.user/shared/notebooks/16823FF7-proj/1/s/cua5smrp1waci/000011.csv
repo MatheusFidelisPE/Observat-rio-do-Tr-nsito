@@ -1,0 +1,7 @@
+"0",""
+"0","dados.anosNivel <- dados.limpos %>% filter(!is.na(escolaridade_anos_falecido), !is.na(nivel_escolaridade_falecido)) %>% group_by(escolaridade_anos_falecido, nivel_escolaridade_falecido) %>% summarise(Morte = n())"
+"0","names(dados.anosNivel) <- c(""Escolaridade Em Anos"", ""Nível de Escolaridade"", ""Morte"")"
+"0",""
+"0","DT::datatable(data=dados.anosNivel, "
+"0","              editable = ""cell"", "
+"0","              options = list(c(scrollY=""200px"", scrollX=""300px"", pageLength = 100)))"

@@ -1,0 +1,2 @@
+"0","variaveis <- read.csv(""colunas.csv"", header = F)"
+"0","DT::datatable(variaveis, editable = ""cell"", options = list(c(scrollY=""200px"", scrollX=""300px"", pageLength = 100)))"
